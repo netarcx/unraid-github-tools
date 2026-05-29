@@ -1,0 +1,65 @@
+Menu="Utilities"
+Title="GitHub Tools"
+Icon="github"
+---
+<?php
+/* github-tools settings page. Reads the canonical config from the flash so the
+   form reflects whatever survived the last reboot. The token is write-only and
+   is never read back into the page. */
+
+$plugin    = "github-tools";
+$bootDir   = "/boot/config/plugins/$plugin";
+$gitconfig = "$bootDir/gitconfig";
+$incl      = "/usr/local/emhttp/plugins/$plugin/include";
+
+$csrf = @parse_ini_file('/var/local/emhttp/var.ini')['csrf_token'] ?? '';
+
+$gitName  = trim((string)@shell_exec("git config --file ".escapeshellarg($gitconfig)." user.name 2>/dev/null"));
+$gitEmail = trim((string)@shell_exec("git config --file ".escapeshellarg($gitconfig)." user.email 2>/dev/null"));
+?>
+
+<style>
+.github-tools-status { white-space: pre-wrap; font-family: monospace; }
+</style>
+
+<form markdown="1" id="github-tools-form" method="POST" action="/plugins/github-tools/include/save.php" target="progressFrame">
+<input type="hidden" name="csrf_token" value="<?=htmlspecialchars($csrf)?>">
+
+_Git identity_ (written to the global `~/.gitconfig`, stored on the flash):
+
+Name:
+: <input type="text" name="git_name" value="<?=htmlspecialchars($gitName)?>" placeholder="Ada Lovelace">
+
+Email:
+: <input type="text" name="git_email" value="<?=htmlspecialchars($gitEmail)?>" placeholder="ada@example.com">
+
+_GitHub authentication_ — paste a [Personal Access Token](https://github.com/settings/tokens). It is stored on the USB flash and used to log in the `gh` CLI and as git's HTTPS credential helper. Leave blank to keep the current token.
+
+Token:
+: <input type="password" name="gh_token" value="" placeholder="ghp_… (leave blank to keep)" autocomplete="off">
+
+&nbsp;
+: <input type="submit" name="action" value="Apply"><input type="button" id="github-tools-signout" value="Sign out of GitHub">
+</form>
+
+<div class="github-tools-status" id="github-tools-status">
+<?php include "$incl/status.php"; ?>
+</div>
+
+<script>
+function ghToolsRefresh(){
+  $.get('/plugins/github-tools/include/status.php', function(html){
+    $('#github-tools-status').html(html);
+  });
+}
+$('#github-tools-form').on('submit', function(){
+  // form posts to the hidden progressFrame; refresh status shortly after.
+  setTimeout(ghToolsRefresh, 1500);
+});
+$('#github-tools-signout').on('click', function(){
+  if(!confirm('Sign out of GitHub and remove the stored token?')) return;
+  $.post('/plugins/github-tools/include/save.php',
+    {action:'logout', csrf_token:'<?=htmlspecialchars($csrf)?>'},
+    ghToolsRefresh);
+});
+</script>

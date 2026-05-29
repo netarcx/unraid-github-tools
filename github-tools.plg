@@ -1,0 +1,70 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+<!ENTITY name      "github-tools">
+<!ENTITY author    "netarcx">
+<!ENTITY version   "2026.05.28">
+<!ENTITY ghVersion "2.74.2">
+<!ENTITY github    "netarcx/unraid-github-tools">
+<!ENTITY plugindir "/boot/config/plugins/&name;">
+<!ENTITY txzName   "&name;-&version;-x86_64-1.txz">
+<!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/&name;.plg">
+<!ENTITY packageURL "https://github.com/&github;/releases/download/&version;/&txzName;">
+<!-- Stamped by the release workflow. PLACEHOLDER will fail SHA256 verification on a real install. -->
+<!ENTITY packageSHA "PLACEHOLDER_SHA256">
+]>
+
+<PLUGIN name="&name;"
+        author="&author;"
+        version="&version;"
+        pluginURL="&pluginURL;"
+        min="7.0.0"
+        icon="github"
+        support="https://github.com/netarcx/unraid-github-tools/issues">
+
+<CHANGES>
+### &version;
+- Install GitHub CLI (`gh` &ghVersion;); git is already part of Unraid 7.
+- WebGUI page (Utilities → GitHub Tools) to set git identity and authenticate gh.
+- Persist `~/.gitconfig` and gh auth to the flash so they survive reboots.
+</CHANGES>
+
+<!--
+  Download the package to the flash and (re)install it. On every boot the cached
+  file is reused when its SHA256 matches, so this works offline after first install
+  and still repopulates /usr/bin/gh + the WebGUI into RAM each boot.
+-->
+<FILE Name="&plugindir;/&txzName;" Run="upgradepkg --install-new">
+  <URL>&packageURL;</URL>
+  <SHA256>&packageSHA;</SHA256>
+</FILE>
+
+<!-- Restore the volatile bits (symlinks, profile.d, credential helper) each boot. -->
+<FILE Run="/bin/bash">
+<INLINE><![CDATA[
+SETUP="/usr/local/emhttp/plugins/github-tools/scripts/setup.sh"
+if [ -x "$SETUP" ]; then
+  bash "$SETUP"
+fi
+echo ""
+echo "github-tools installed."
+echo "git: $(git --version 2>/dev/null || echo 'not found')"
+echo "gh:  $(gh --version 2>/dev/null | head -n1 || echo 'not found')"
+echo "Configure identity + auth at: Settings/Utilities -> GitHub Tools"
+exit 0
+]]></INLINE>
+</FILE>
+
+<!-- Uninstall. Keep the flash config so a reinstall restores identity + token. -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE><![CDATA[
+removepkg github-tools >/dev/null 2>&1
+rm -f /etc/profile.d/github-tools.sh
+rm -f /root/.gitconfig
+rm -f /root/.config/gh
+echo "github-tools removed."
+echo "Identity + token kept on flash at /boot/config/plugins/github-tools (delete it manually to fully purge)."
+exit 0
+]]></INLINE>
+</FILE>
+
+</PLUGIN>

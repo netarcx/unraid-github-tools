@@ -1,0 +1,70 @@
+name: Release plugin
+
+# Manual release. Builds the .txz, stamps github-tools.plg with the new version,
+# gh version, package SHA256 and this repo's slug, commits the .plg to the default
+# branch, then publishes a GitHub Release with the .txz attached.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Plugin version (e.g. 2026.05.28)"
+        required: true
+      gh_version:
+        description: "GitHub CLI version to bundle (e.g. 2.74.2)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build package
+        id: build
+        env:
+          GH_VERSION: ${{ inputs.gh_version }}
+        run: |
+          set -euo pipefail
+          ./build/make-package.sh "${{ inputs.version }}" | tee build.out
+          echo "sha=$(grep '^SHA256=' build.out | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          echo "pkg=$(grep '^PACKAGE=' build.out | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp github-tools.plg
+        run: |
+          set -euo pipefail
+          V='${{ inputs.version }}'
+          GHV='${{ inputs.gh_version }}'
+          SHA='${{ steps.build.outputs.sha }}'
+          SLUG='${{ github.repository }}'
+          sed -i -E "s|(<!ENTITY version   \").*(\">)|\1${V}\2|"        github-tools.plg
+          sed -i -E "s|(<!ENTITY ghVersion \").*(\">)|\1${GHV}\2|"      github-tools.plg
+          sed -i -E "s|(<!ENTITY github    \").*(\">)|\1${SLUG}\2|"     github-tools.plg
+          sed -i -E "s|(<!ENTITY packageSHA \").*(\">)|\1${SHA}\2|"     github-tools.plg
+          echo "----- stamped .plg header -----"
+          sed -n '1,15p' github-tools.plg
+
+      - name: Commit stamped .plg
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add github-tools.plg
+          if git diff --cached --quiet; then
+            echo "No .plg changes to commit."
+          else
+            git commit -m "Release ${{ inputs.version }} (gh ${{ inputs.gh_version }})"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ inputs.version }}" \
+            "${{ steps.build.outputs.pkg }}" \
+            --title "github-tools ${{ inputs.version }}" \
+            --notes "GitHub CLI ${{ inputs.gh_version }}. Install/update via the plugin's raw .plg URL."
