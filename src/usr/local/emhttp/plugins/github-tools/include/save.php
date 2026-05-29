@@ -27,8 +27,15 @@ if ($expected === '' || !hash_equals($expected, (string)$got)) {
 
 @mkdir($ghDir, 0700, true);
 
-/* PATH must include /usr/bin so gh/git resolve under proc_open's clean env. */
-$baseEnv = ['GH_CONFIG_DIR' => $ghDir, 'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'];
+/* proc_open replaces the whole environment, so set what the children need:
+   PATH (to resolve gh/git), GH_CONFIG_DIR (gh's flash store), and HOME (so
+   `gh auth setup-git` -> `git config --global` lands in /root/.gitconfig, which
+   is symlinked to the flash copy). */
+$baseEnv = [
+    'GH_CONFIG_DIR' => $ghDir,
+    'HOME'          => '/root',
+    'PATH'          => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+];
 
 function gt_exec(string $cmd, array $env, ?string $stdin = null): array {
     $descr = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];

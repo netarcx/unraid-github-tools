@@ -19,6 +19,14 @@ PROFILE_D="/etc/profile.d/${PLUGIN}.sh"
 mkdir -p "${BOOT_DIR}" "${GH_DIR}"
 chmod 700 "${GH_DIR}"
 
+# Preserve a pre-existing real ~/.gitconfig (e.g. one the admin set up via the
+# `go` script) instead of clobbering it with our symlink: migrate it onto the
+# flash on first run, when we don't already have a non-empty copy there.
+if [ -f /root/.gitconfig ] && [ ! -L /root/.gitconfig ]; then
+    [ -s "${GITCONFIG}" ] || cat /root/.gitconfig > "${GITCONFIG}"
+    rm -f /root/.gitconfig
+fi
+
 # Canonical git config lives on flash; create an empty one on first run so the
 # symlink target always exists.
 [ -f "${GITCONFIG}" ] || : > "${GITCONFIG}"

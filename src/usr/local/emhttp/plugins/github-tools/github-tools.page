@@ -22,7 +22,7 @@ $gitEmail = trim((string)@shell_exec("git config --file ".escapeshellarg($gitcon
 .github-tools-status { white-space: pre-wrap; font-family: monospace; }
 </style>
 
-<form markdown="1" id="github-tools-form" method="POST" action="/plugins/github-tools/include/save.php" target="progressFrame">
+<form markdown="1" id="github-tools-form">
 <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($csrf)?>">
 
 _Git identity_ (written to the global `~/.gitconfig`, stored on the flash):
@@ -39,8 +39,10 @@ Token:
 : <input type="password" name="gh_token" value="" placeholder="ghp_… (leave blank to keep)" autocomplete="off">
 
 &nbsp;
-: <input type="submit" name="action" value="Apply"><input type="button" id="github-tools-signout" value="Sign out of GitHub">
+: <input type="submit" value="Apply"><input type="button" id="github-tools-signout" value="Sign out of GitHub">
 </form>
+
+<div class="github-tools-result" id="github-tools-result"></div>
 
 <div class="github-tools-status" id="github-tools-status">
 <?php include "$incl/status.php"; ?>
@@ -52,14 +54,19 @@ function ghToolsRefresh(){
     $('#github-tools-status').html(html);
   });
 }
-$('#github-tools-form').on('submit', function(){
-  // form posts to the hidden progressFrame; refresh status shortly after.
-  setTimeout(ghToolsRefresh, 1500);
+function ghToolsResult(text){ $('#github-tools-result').text(text); }
+$('#github-tools-form').on('submit', function(e){
+  e.preventDefault();
+  ghToolsResult('Applying…');
+  $.post('/plugins/github-tools/include/save.php', $(this).serialize())
+    .done(function(resp){ ghToolsResult(resp); })
+    .fail(function(x){ ghToolsResult(x.responseText || 'Request failed.'); })
+    .always(function(){ $('input[name=gh_token]').val(''); ghToolsRefresh(); });
 });
 $('#github-tools-signout').on('click', function(){
   if(!confirm('Sign out of GitHub and remove the stored token?')) return;
   $.post('/plugins/github-tools/include/save.php',
-    {action:'logout', csrf_token:'<?=htmlspecialchars($csrf)?>'},
-    ghToolsRefresh);
+    {action:'logout', csrf_token:'<?=htmlspecialchars($csrf)?>'})
+    .always(function(resp){ ghToolsResult(typeof resp==='string'?resp:'Signed out.'); ghToolsRefresh(); });
 });
 </script>

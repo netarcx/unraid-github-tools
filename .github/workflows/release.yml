@@ -39,10 +39,10 @@ jobs:
           GHV='${{ inputs.gh_version }}'
           SHA='${{ steps.build.outputs.sha }}'
           SLUG='${{ github.repository }}'
-          sed -i -E "s|(<!ENTITY version   \").*(\">)|\1${V}\2|"        github-tools.plg
-          sed -i -E "s|(<!ENTITY ghVersion \").*(\">)|\1${GHV}\2|"      github-tools.plg
-          sed -i -E "s|(<!ENTITY github    \").*(\">)|\1${SLUG}\2|"     github-tools.plg
-          sed -i -E "s|(<!ENTITY packageSHA \").*(\">)|\1${SHA}\2|"     github-tools.plg
+          sed -i -E "s|(<!ENTITY version[[:space:]]+\")[^\"]*(\">)|\1${V}\2|"     github-tools.plg
+          sed -i -E "s|(<!ENTITY ghVersion[[:space:]]+\")[^\"]*(\">)|\1${GHV}\2|"  github-tools.plg
+          sed -i -E "s|(<!ENTITY github[[:space:]]+\")[^\"]*(\">)|\1${SLUG}\2|"     github-tools.plg
+          sed -i -E "s|(<!ENTITY packageSHA[[:space:]]+\")[^\"]*(\">)|\1${SHA}\2|"  github-tools.plg
           echo "----- stamped .plg header -----"
           sed -n '1,15p' github-tools.plg
 

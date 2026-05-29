@@ -10,7 +10,7 @@
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/&name;.plg">
 <!ENTITY packageURL "https://github.com/&github;/releases/download/&version;/&txzName;">
 <!-- Stamped by the release workflow. PLACEHOLDER will fail SHA256 verification on a real install. -->
-<!ENTITY packageSHA "34d8230d41c1e5de79b00f99aa3c9f2848b815a4017c4c9eb12db77ab51563ec">
+<!ENTITY packageSHA "dff0951b52727f7de7e024eae66ed230f2d7a53c3ae51f10af3ca86b0311b7f0">
 ]>
 
 <PLUGIN name="&name;"
