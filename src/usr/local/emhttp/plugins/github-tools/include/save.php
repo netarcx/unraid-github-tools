@@ -29,8 +29,8 @@ if ($expected === '' || !hash_equals($expected, (string)$got)) {
 
 /* proc_open replaces the whole environment, so set what the children need:
    PATH (to resolve gh/git), GH_CONFIG_DIR (gh's flash store), and HOME (so
-   `gh auth setup-git` -> `git config --global` lands in /root/.gitconfig, which
-   is symlinked to the flash copy). */
+   `git config --global` lands in /root/.gitconfig, which is symlinked to the
+   flash copy). */
 $baseEnv = [
     'GH_CONFIG_DIR' => $ghDir,
     'HOME'          => '/root',
@@ -54,6 +54,9 @@ $action = $_POST['action'] ?? 'save';
 if ($action === 'logout') {
     gt_exec('gh auth logout --hostname github.com', $baseEnv);
     @unlink("$ghDir/hosts.yml");
+    $credKey = 'credential.https://github.com.helper';
+    gt_exec('git config --file ' . escapeshellarg($gitcfg) . ' --unset-all ' . escapeshellarg($credKey), $baseEnv);
+    gt_exec('git config --system --unset-all ' . escapeshellarg($credKey), $baseEnv);
     exit("Signed out of GitHub.\n");
 }
 
@@ -91,7 +94,12 @@ if ($token !== '') {
         exit("GitHub login failed: " . htmlspecialchars($out) . "\n");
     }
     @chmod("$ghDir/hosts.yml", 0600);
-    gt_exec('gh auth setup-git', $baseEnv);
+    $credKey = 'credential.https://github.com.helper';
+    $helper  = '!GH_CONFIG_DIR=' . $ghDir . ' /usr/bin/gh auth git-credential';
+    gt_exec('git config --file ' . escapeshellarg($gitcfg) . ' --unset-all ' . escapeshellarg($credKey), $baseEnv);
+    gt_exec('git config --file ' . escapeshellarg($gitcfg) . ' ' . escapeshellarg($credKey) . ' ' . escapeshellarg(''), $baseEnv);
+    gt_exec('git config --file ' . escapeshellarg($gitcfg) . ' --add ' . escapeshellarg($credKey) . ' ' . escapeshellarg($helper), $baseEnv);
+    gt_exec('git config --system ' . escapeshellarg($credKey) . ' ' . escapeshellarg($helper), $baseEnv);
     $msgs[] = "Logged in to GitHub and configured git credential helper.";
 }
 

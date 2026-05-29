@@ -51,11 +51,21 @@ chmod 755 "${PROFILE_D}"
 # Lock down the token file if a login has been performed.
 [ -f "${GH_DIR}/hosts.yml" ] && chmod 600 "${GH_DIR}/hosts.yml"
 
-# If we're authenticated, wire gh up as git's HTTPS credential helper so
-# `git clone/push` over HTTPS just works. Writes into the (flash-backed) global
-# gitconfig, so it persists; re-running is harmless.
+# Wire gh as git's HTTPS credential helper so `git clone/push` just works.
+# The helper command embeds GH_CONFIG_DIR so it always finds the token
+# regardless of the shell environment or ~/.config/gh symlink state.
 if [ -f "${GH_DIR}/hosts.yml" ] && command -v gh >/dev/null 2>&1; then
-    GH_CONFIG_DIR="${GH_DIR}" gh auth setup-git >/dev/null 2>&1
+    CRED_KEY='credential.https://github.com.helper'
+    HELPER="!GH_CONFIG_DIR=${GH_DIR} /usr/bin/gh auth git-credential"
+
+    # Global gitconfig (flash-backed, persists across reboots).
+    git config --file "${GITCONFIG}" --unset-all "${CRED_KEY}" 2>/dev/null || true
+    git config --file "${GITCONFIG}" "${CRED_KEY}" ''
+    git config --file "${GITCONFIG}" --add "${CRED_KEY}" "${HELPER}"
+
+    # System gitconfig (/etc/gitconfig, volatile). Fallback if anything
+    # overwrites the global credential entry during runtime.
+    git config --system "${CRED_KEY}" "${HELPER}" 2>/dev/null || true
 fi
 
 exit 0
